@@ -1,47 +1,43 @@
-'use client'
+"use client";
 
 import { useEffect, useState, useRef } from "react";
 import parse from "html-react-parser";
 import DOMPurify from "dompurify";
 import LottieAnimation from "./LottieAnimation";
-import LeftSidebar from './LeftSidebar';
+import LeftSidebar from "./LeftSidebar";
 
 const ChatInterface = () => {
-    const [showPrompt, setShowPrompt] = useState(false);
-    const [enterPressed, setEnterPressed] = useState(false);
-    const [bgLoaded, setBgLoaded] = useState(false);
-    const [animationLoaded, setAnimationLoaded] = useState(false);
-    const [message, setMessage] = useState("");
-    const [showInput, setShowInput] = useState(false);
-    const [animatedWords, setAnimatedWords] = useState([]);
-    const [showRipple, setShowRipple] = useState(false);
-    const [isExiting, setIsExiting] = useState(false);
-    const [finalMessages, setFinalMessages] = useState([]);
-    const [showAIGlow, setShowAIGlow] = useState(false);
-    const [messagePositions, setMessagePositions] = useState([]);
-    const [aiMessagePositions, setAiMessagePositions] = useState([]);
-    const [containerHeight, setContainerHeight] = useState(20);
-    const messageRefs = useRef([]);
-    const [loadingPositions, setLoadingPositions] = useState([]);
-    const [activeGlow, setActiveGlow] = useState(false);
-    const [aiResponses, setAiResponses] = useState([]);
-    const [showPhotoContainers, setShowPhotoContainers] = useState([]);
-    const [showPhoto, setShowPhoto] = useState([]);
-    const [showPreloadAnimation, setShowPreloadAnimation] = useState([]);
-    const [isQuestion, setIsQuestion] = useState(false);
-    const [showQuestionLottie, setShowQuestionLottie] = useState(false);
-    const [isQuestionLottieFadingIn, setIsQuestionLottieFadingIn] =
-      useState(false);
-    const [isQuestionLottieFadingOut, setIsQuestionLottieFadingOut] =
-      useState(false);
-  
-    const scrollRef = useRef();
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [enterPressed, setEnterPressed] = useState(false);
+  const [bgLoaded, setBgLoaded] = useState(false);
+  const [animationLoaded, setAnimationLoaded] = useState(false);
+  const [message, setMessage] = useState("");
+  const [showInput, setShowInput] = useState(false);
+  const [animatedWords, setAnimatedWords] = useState([]);
+  const [showRipple, setShowRipple] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
+  const [finalMessages, setFinalMessages] = useState([]);
+  const [showAIGlow, setShowAIGlow] = useState(false);
+  const [messagePositions, setMessagePositions] = useState([]);
+  const [aiMessagePositions, setAiMessagePositions] = useState([]);
+  const [containerHeight, setContainerHeight] = useState(20);
+  const messageRefs = useRef([]);
+  const [loadingPositions, setLoadingPositions] = useState([]);
+  const [activeGlow, setActiveGlow] = useState(false);
+  const [aiResponses, setAiResponses] = useState([]);
+  const [showPhotoContainers, setShowPhotoContainers] = useState([]);
+  const [showPhoto, setShowPhoto] = useState([]);
+  const [showPreloadAnimation, setShowPreloadAnimation] = useState([]);
+  const [isQuestion, setIsQuestion] = useState(false);
+  const [showQuestionLottie, setShowQuestionLottie] = useState(false);
+  const [isQuestionLottieFadingIn, setIsQuestionLottieFadingIn] =
+    useState(false);
+  const [isQuestionLottieFadingOut, setIsQuestionLottieFadingOut] =
+    useState(false);
 
-    
-    
-    
+  const scrollRef = useRef();
 
-    // MODIFICATION #1: Change how Lottie animations are loaded
+  // MODIFICATION #1: Change how Lottie animations are loaded
   // Instead of importing JSON files directly, we'll load them from the public folder
   const [animationData, setAnimationData] = useState(null);
   const [rippleAnimation, setRippleAnimation] = useState(null);
@@ -57,25 +53,27 @@ const ChatInterface = () => {
     const loadAnimations = async () => {
       try {
         const [
-          bgData, 
-          rippleData, 
-          glow1Data, 
-          glow2Data, 
-          glow3Data, 
-          starData, 
-          preloadData, 
-          questionData
+          bgData,
+          rippleData,
+          glow1Data,
+          glow2Data,
+          glow3Data,
+          starData,
+          preloadData,
+          questionData,
         ] = await Promise.all([
-          fetch('/lottie/bg-small-blur.json').then(res => res.json()),
-          fetch('/lottie/ripple.json').then(res => res.json()),
-          fetch('/lottie/1.json').then(res => res.json()),
-          fetch('/lottie/2.json').then(res => res.json()),
-          fetch('/lottie/3.json').then(res => res.json()),
-          fetch('/lottie/glowing-star.json').then(res => res.json()),
-          fetch('/lottie/image-preload-gradient.json').then(res => res.json()),
-          fetch('/lottie/question-lottie-2.json').then(res => res.json()),
+          fetch("/lottie/bg-small-blur.json").then((res) => res.json()),
+          fetch("/lottie/ripple.json").then((res) => res.json()),
+          fetch("/lottie/1.json").then((res) => res.json()),
+          fetch("/lottie/2.json").then((res) => res.json()),
+          fetch("/lottie/3.json").then((res) => res.json()),
+          fetch("/lottie/glowing-star.json").then((res) => res.json()),
+          fetch("/lottie/image-preload-gradient.json").then((res) =>
+            res.json()
+          ),
+          fetch("/lottie/question-lottie-2.json").then((res) => res.json()),
         ]);
-        
+
         setAnimationData(bgData);
         setRippleAnimation(rippleData);
         setAiGlowAnimation1(glow1Data);
@@ -88,30 +86,52 @@ const ChatInterface = () => {
         console.error("Error loading animations:", error);
       }
     };
-    
+
     loadAnimations();
   }, []);
 
   const generateAIResponse = async (userPrompt) => {
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: userPrompt }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to generate response');
+      // Get bearer token from localStorage
+      const bearerToken = localStorage.getItem("bearerToken");
+
+      if (!bearerToken) {
+        console.error("No bearer token found. User may need to log in");
+        return null;
       }
-      
-      const data = await response.json();
-      return data.response;
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${bearerToken}`,
+        },
+        body: JSON.stringify({
+          message_type: "text",
+          message: userPrompt,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate response");
+
+      return {
+        stream: response.body,
+        isPhotoResponse: userPrompt.toLowerCase().includes("photo"),
+      };
     } catch (error) {
       console.error("Error generating AI response:", error);
       return null;
     }
+  };
+
+  const refineAIResponse = (chunk, isFirstChunk) => {
+    // Ignore the first chunk as it contains metadata (IDs)
+    if (isFirstChunk) {
+      return "";
+    }
+
+    return chunk.replace(/data: /g, "");
   };
 
   const photographerImage = "/images/photographer.png";
@@ -386,27 +406,93 @@ const ChatInterface = () => {
       setShowRipple(true);
       setShowPrompt(false);
 
-      const aiResponse = await generateAIResponse(message.trim());
-      const responseText = containsPhoto
-        ? "Sure, let me show you the photo for it."
-        : aiResponse || "I couldn't generate a response. Please try again.";
-
       setAiResponses((prev) => [
         ...prev,
         {
-          text: responseText,
+          text: "",
           isPhotoResponse: containsPhoto,
-          words: responseText.split(""),
           isAnimated: false,
           isQuestion: isQuestion,
+          isStreaming: true,
         },
       ]);
+
+      const aiResponse = await generateAIResponse(message.trim());
+      if (!aiResponse) return;
+      const reader = aiResponse.stream.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = "";
+      let isFirstChunk = true;
+      let hasReceivedContentChunks = false;
+
+      console.log("---START OF AI STREAM---");
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          console.log("---END OF AI STREAM---");
+          console.log("Final combined response:", fullResponse);
+          if (!hasReceivedContentChunks) {
+            fullResponse =
+              "Sorry, there was a problem with serving this request. Please try again later!";
+            setAiResponses((prev) => {
+              const lastIndex = prev.length - 1;
+              const updated = [...prev];
+              updated[lastIndex] = {
+                ...updated[lastIndex],
+                text: fullResponse,
+              };
+              return updated;
+            });
+          }
+          break;
+        }
+        const chunk = decoder.decode(value);
+        console.log("Raw chunk received:", chunk);
+        const refinedChunk = refineAIResponse(chunk, isFirstChunk);
+        if (isFirstChunk) {
+          isFirstChunk = false;
+        } else if (refinedChunk.trim()) {
+          // If we get a non-empty chunk after the first one, mark that we've received content
+          hasReceivedContentChunks = true;
+        }
+        isFirstChunk = false;
+        if (refinedChunk) {
+          fullResponse += refinedChunk;
+          console.log("Current accumulated response:", fullResponse);
+
+          // Update the latest AI response with streaming content
+          setAiResponses((prev) => {
+            const lastIndex = prev.length - 1;
+            const updated = [...prev];
+            updated[lastIndex] = {
+              ...updated[lastIndex],
+              text: fullResponse,
+            };
+            return updated;
+          });
+        }
+      }
+
+      setAiResponses((prev) => {
+        const lastIndex = prev.length - 1;
+        const updated = [...prev];
+        updated[lastIndex] = {
+          ...updated[lastIndex],
+          isStreaming: false,
+          isAnimated: true,
+        };
+        return updated;
+      });
 
       if (finalMessages.length >= 2 && scrollRef.current) {
         const container = scrollRef.current;
         container.scrollTop = container.scrollHeight - container.clientHeight;
       }
     }
+  };
+
+  const renderAIResponse = (text) => {
+    return parse(DOMPurify.sanitize(`<p>${text}</p>`));
   };
 
   useEffect(() => {
@@ -537,7 +623,7 @@ const ChatInterface = () => {
   useEffect(() => {
     const loadImages = async () => {
       const imageUrls = ["/assets/chat-bg.jpg", "/assets/question-bg.jpg"];
-  
+
       try {
         await Promise.all(
           imageUrls.map((url) => {
@@ -549,7 +635,7 @@ const ChatInterface = () => {
             });
           })
         );
-  
+
         setBgLoaded(true);
         setTimeout(() => {
           setShowPrompt(true);
@@ -560,7 +646,7 @@ const ChatInterface = () => {
         console.error("Error loading background images:", error);
       }
     };
-  
+
     loadImages();
   }, []);
 
@@ -593,7 +679,7 @@ const ChatInterface = () => {
 
   useEffect(() => {
     if (activeGlow) {
-        setShowAIGlow(true);
+      setShowAIGlow(true);
       const glowTimer = setTimeout(() => {
         setActiveGlow(false);
         setShowAIGlow(false);
@@ -711,9 +797,10 @@ const ChatInterface = () => {
     if (activeGlow) {
       console.log("Glow activated");
       // Check if any CSS is affecting visibility
-      const glowElements = document.querySelectorAll('.bg-glow-animation');
-      glowElements.forEach(el => {
-        console.log("Glow element computed style:", 
+      const glowElements = document.querySelectorAll(".bg-glow-animation");
+      glowElements.forEach((el) => {
+        console.log(
+          "Glow element computed style:",
           window.getComputedStyle(el).opacity,
           window.getComputedStyle(el).visibility
         );
@@ -785,7 +872,7 @@ const ChatInterface = () => {
         </>
       )}
       <div className={`chat-container ${bgLoaded ? "loaded" : ""}`}>
-      <LeftSidebar />
+        <LeftSidebar />
         <div className="background-layer question-bg" />
         <div
           className={`background-layer chat-bg ${isQuestion ? "fade-out" : ""}`}
@@ -882,7 +969,7 @@ const ChatInterface = () => {
                   }}
                 >
                   <div className="ai-message-content">
-                    {renderStaggeredContent(response.text, response.isQuestion)}
+                    {renderAIResponse(response.text)}
                     {response.isPhotoResponse && showPhotoContainers[index] && (
                       <div className="nested-photo-container">
                         <div

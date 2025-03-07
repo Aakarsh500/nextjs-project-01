@@ -8,8 +8,9 @@ const firebaseConfig = {
   storageBucket: "hawai-52704.appspot.com",
   messagingSenderId: "399515824553",
   appId: "1:399515824553:web:d33948f41db65806bc54b8",
-  measurementId: "G-NMN82DJC5Y"
+  measurementId: "G-NMN82DJC5Y",
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+const db = getFirestore(app);
+export { db };

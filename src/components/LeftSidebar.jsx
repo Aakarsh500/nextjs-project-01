@@ -11,6 +11,57 @@ const LeftSidebar = () => {
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
+  useEffect(() => {
+    if (isSignedIn && user) {
+      console.log(
+        "Attempting to log in user:",
+        user.primaryEmailAddress.emailAddress
+      );
+      fetch("/api/user-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: {
+            email: user.primaryEmailAddress.emailAddress,
+            fullName: user.fullName,
+            imageUrl: user.imageUrl,
+          },
+        }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            return response.json().then((err) => {
+              throw new Error(`${err.error}: ${err.details}`);
+            });
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log("Login process complete:", data);
+
+          // Store the bearer token in localStorage
+          if (data.bearerToken) {
+            localStorage.setItem("bearerToken", data.bearerToken);
+            console.log("Bearer token stored in localStorage");
+          }
+
+          if (data.isNewUser) {
+            console.log("New user registered with backend");
+          } else {
+            console.log("Existing user logged in");
+          }
+
+          // You can also store chat logs if needed
+          if (data.chatLogs) {
+            localStorage.setItem("chatLogs", JSON.stringify(data.chatLogs));
+          }
+        })
+        .catch((error) => console.error("Detailed login error:", error));
+    }
+  }, [isSignedIn, user]);
+
   return (
     <>
       <motion.div
