@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, act } from "react";
 import parse from "html-react-parser";
 import DOMPurify from "dompurify";
 import LottieAnimation from "./LottieAnimation";
@@ -17,13 +17,9 @@ const ChatInterface = () => {
   const [showRipple, setShowRipple] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [finalMessages, setFinalMessages] = useState([]);
-  const [showAIGlow, setShowAIGlow] = useState(false);
-  const [messagePositions, setMessagePositions] = useState([]);
-  const [aiMessagePositions, setAiMessagePositions] = useState([]);
-  const [containerHeight, setContainerHeight] = useState(20);
   const messageRefs = useRef([]);
-  const [loadingPositions, setLoadingPositions] = useState([]);
   const [activeGlow, setActiveGlow] = useState(false);
+  const [showLoadingAnimation, setShowLoadingAnimation] = useState(false);
   const [aiResponses, setAiResponses] = useState([]);
   const [showPhotoContainers, setShowPhotoContainers] = useState([]);
   const [showPhoto, setShowPhoto] = useState([]);
@@ -34,11 +30,15 @@ const ChatInterface = () => {
     useState(false);
   const [isQuestionLottieFadingOut, setIsQuestionLottieFadingOut] =
     useState(false);
+  const lastMessageRef = useRef(null);
+  const [questionLottiePosition, setQuestionLottiePosition] = useState({
+    top: 0,
+    left: "50%",
+  });
+  const [visibleQuestionResponses, setVisibleQuestionResponses] = useState({});
+  const chatContainerRef = useRef(null);
 
-  const scrollRef = useRef();
-
-  // MODIFICATION #1: Change how Lottie animations are loaded
-  // Instead of importing JSON files directly, we'll load them from the public folder
+  // lottie animations:
   const [animationData, setAnimationData] = useState(null);
   const [rippleAnimation, setRippleAnimation] = useState(null);
   const [aiGlowAnimation1, setAiGlowAnimation1] = useState(null);
@@ -47,6 +47,7 @@ const ChatInterface = () => {
   const [glowingStarAnimation, setGlowingStarAnimation] = useState(null);
   const [imagePreloadAnimation, setImagePreloadAnimation] = useState(null);
   const [questionLottie, setQuestionLottie] = useState(null);
+  const [activeMessages, setActiveMessages] = useState([]);
 
   useEffect(() => {
     // Load all Lottie animations
@@ -138,38 +139,51 @@ const ChatInterface = () => {
 
   useEffect(() => {
     if (isQuestion && showQuestionLottie) {
-      const lastIndex = aiMessagePositions.length - 1;
-      const position = aiMessagePositions[lastIndex];
+      if (lastMessageRef.current) {
+        const rect = lastMessageRef.current.getBoundingClientRect();
+        setQuestionLottiePosition({
+          top: rect.bottom + window.scrollY,
+          left: "50%",
+        });
+      }
+
+      const lastIndex = aiResponses.length - 1;
+      const lastMessage = document.querySelector(".final-message.new");
+      if (lastMessage) {
+        const messageRect = lastMessage.getBoundingClientRect();
+        setQuestionLottiePosition({
+          top: messageRect.bottom,
+        });
+      }
+
+      // Initially hide this specific question response
+      setVisibleQuestionResponses((prev) => ({
+        ...prev,
+        [lastIndex]: false,
+      }));
 
       const questionResponseTimer = setTimeout(() => {
+        // After 5 seconds, make this specific response visible
+        setVisibleQuestionResponses((prev) => ({
+          ...prev,
+          [lastIndex]: true,
+        }));
+
+        // Now trigger animations for this specific response
         setAiResponses((prev) =>
           prev.map((response, index) =>
             index === lastIndex
-              ? { ...response, shouldAnimate: true }
+              ? { ...response, shouldAnimate: true, isAnimated: true }
               : response
           )
         );
 
+        // Animation code remains the same
         const aiBoxes = document.querySelectorAll(".ai-response-box");
         const lastAiBox = aiBoxes[aiBoxes.length - 1];
-
         if (lastAiBox) {
           lastAiBox.classList.add("question-response");
-          console.log("Triggering question response animation after 4s delay");
-          // Add the question-response class to trigger our animation
-          lastAiBox.classList.add("question-response");
 
-          // Set the AI response to animated state
-          const responseIndex = aiMessagePositions.length - 1;
-          setAiResponses((prev) =>
-            prev.map((response, index) =>
-              index === responseIndex
-                ? { ...response, isAnimated: true }
-                : response
-            )
-          );
-
-          // Animate the text content after the box animation starts
           setTimeout(() => {
             const aiWords = lastAiBox.querySelectorAll(".ai-word");
             aiWords.forEach((word, index) => {
@@ -179,11 +193,11 @@ const ChatInterface = () => {
             });
           }, 750);
         }
-      }, 4500);
+      }, 5000); // Changed to 5 seconds
 
       return () => clearTimeout(questionResponseTimer);
     }
-  }, [isQuestion, showQuestionLottie, aiMessagePositions]);
+  }, [isQuestion, showQuestionLottie, aiResponses.length]);
 
   const question_phrases_terms = [
     "what",
@@ -235,47 +249,6 @@ const ChatInterface = () => {
     );
   };
 
-  const recalculateMessagePositions = () => {
-    let currentPosition = 20;
-    let newMessagePositions = [];
-    let newAiMessagePositions = [];
-
-    finalMessages.forEach((_, index) => {
-      const userMessage = messageRefs.current[index];
-      if (userMessage) {
-        // Add user message position
-        newMessagePositions.push(currentPosition);
-
-        // Calculate height and add spacing
-        const userHeight = userMessage.getBoundingClientRect().height;
-        currentPosition += userHeight + 10;
-
-        // Add AI message position
-        newAiMessagePositions.push(currentPosition);
-
-        // Get the corresponding AI response element
-        // This is the key fix - we need to find the right element regardless of styling
-        const aiResponse = aiResponses[index];
-        const isQuestionResponse = aiResponse?.isQuestion;
-
-        // Find the element using a more reliable selector
-        const aiBoxes = document.querySelectorAll(".ai-response-box");
-        const aiBox = aiBoxes[index];
-
-        // Get the actual rendered height
-        const aiHeight = aiBox ? aiBox.getBoundingClientRect().height : 80;
-
-        // Update position for next message
-        currentPosition += aiHeight + 20;
-      }
-    });
-
-    // Update state with new positions
-    setMessagePositions(newMessagePositions);
-    setAiMessagePositions(newAiMessagePositions);
-    setContainerHeight(currentPosition);
-  };
-
   const getLottieHeight = (lottieData) => {
     try {
       // Lottie files typically store dimensions in the root object
@@ -284,90 +257,6 @@ const ChatInterface = () => {
       console.error("Error getting Lottie height:", error);
       return 0;
     }
-  };
-
-  useEffect(() => {
-    if (finalMessages.length >= 2 && scrollRef.current) {
-      const container = scrollRef.current;
-      container.scrollTop = container.scrollHeight - container.clientHeight;
-    }
-  }, [containerHeight, finalMessages, aiResponses]);
-
-  const renderStaggeredContent = (
-    html,
-    isQuestion = false,
-    limitWords = false
-  ) => {
-    let wordCount = 0;
-    const FIRST_PHASE_WORDS = 15;
-    const FIRST_PHASE_DURATION = 1.7;
-    const MAX_INITIAL_WORDS = 10; // Limit for initial display
-
-    return parse(DOMPurify.sanitize(html), {
-      replace: (domNode) => {
-        if (domNode.type === "text") {
-          const words = domNode.data.split(/(\s+)/).map((word, index) => {
-            if (word.match(/^\s+$/)) {
-              return (
-                <span key={index} className="">
-                  {word}
-                </span>
-              );
-            }
-
-            // If limiting words and we've reached the limit, hide the rest
-            if (limitWords && wordCount >= MAX_INITIAL_WORDS) {
-              return (
-                <span key={index} className="question-word2hidden-word">
-                  {word}
-                </span>
-              );
-            }
-
-            // Different animation classes for question responses
-            if (isQuestion) {
-              wordCount++;
-              return (
-                <span
-                  key={index}
-                  className="question-word2"
-                  style={{
-                    opacity: 1,
-                  }}
-                >
-                  {word}
-                </span>
-              );
-            }
-
-            const isFirstPhase = wordCount < FIRST_PHASE_WORDS;
-            wordCount++;
-
-            return (
-              <span
-                key={index}
-                className={`ai-word ${
-                  isFirstPhase ? "animate-from-bottom" : "fade-in"
-                }`}
-                style={{
-                  transitionDelay: isFirstPhase
-                    ? `${(wordCount - 1) * 0.1}s`
-                    : `${
-                        FIRST_PHASE_DURATION +
-                        (wordCount - FIRST_PHASE_WORDS - 1) * 0.1
-                      }s`,
-                }}
-              >
-                {word}
-              </span>
-            );
-          });
-
-          return <>{words}</>;
-        }
-        return domNode;
-      },
-    });
   };
 
   const handleMessageChange = (e) => {
@@ -390,6 +279,7 @@ const ChatInterface = () => {
       setShowQuestionLottie(false);
       setIsQuestionLottieFadingOut(false);
       setIsQuestionLottieFadingIn(false);
+      setShowLoadingAnimation(false);
       if (checkForQuestionPhrases(message.trim())) {
         setIsQuestion(true);
       } else {
@@ -454,6 +344,7 @@ const ChatInterface = () => {
         } else if (refinedChunk.trim()) {
           // If we get a non-empty chunk after the first one, mark that we've received content
           hasReceivedContentChunks = true;
+          setShowLoadingAnimation(false);
         }
         isFirstChunk = false;
         if (refinedChunk) {
@@ -483,11 +374,7 @@ const ChatInterface = () => {
         };
         return updated;
       });
-
-      if (finalMessages.length >= 2 && scrollRef.current) {
-        const container = scrollRef.current;
-        container.scrollTop = container.scrollHeight - container.clientHeight;
-      }
+      setShowLoadingAnimation(false);
     }
   };
 
@@ -501,6 +388,29 @@ const ChatInterface = () => {
       console.log("Question Lottie height:", lottieHeight);
     }
   }, [questionLottie]);
+
+  useEffect(() => {
+    if (finalMessages.length > 1) {
+      // Trigger scroll only after the first message
+      const container = chatContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight; // Scroll to bottom
+      }
+    }
+  }, [finalMessages]);
+
+  // Add this new effect
+  useEffect(() => {
+    // Check if any question response has just become visible
+    const visibleResponses = Object.values(visibleQuestionResponses);
+    if (visibleResponses.some((visible) => visible)) {
+      const container = chatContainerRef.current;
+      if (container) {
+        // Scroll to bottom when a question response becomes visible
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }, [visibleQuestionResponses]); // This triggers when visibleQuestionResponses changes
 
   // Modify the photo handling useEffect
   useEffect(() => {
@@ -547,50 +457,31 @@ const ChatInterface = () => {
   useEffect(() => {
     if (finalMessages.length > 0) {
       const lastIndex = finalMessages.length - 1;
-      const lastMessage = messageRefs.current[lastIndex];
-      if (lastMessage) {
-        const userTop = messagePositions[lastIndex] || containerHeight;
-        const userHeight = lastMessage.getBoundingClientRect().height;
-        const aiTop = userTop + userHeight + 10;
+      const isQuestionResponse = isQuestion;
 
-        // Use the actual isQuestion state from the current message
-        const isQuestionResponse = isQuestion;
+      // Update the AI response to mark as a question if needed
+      setAiResponses((prev) => {
+        const updated = [...prev];
+        if (updated[lastIndex]) {
+          updated[lastIndex] = {
+            ...updated[lastIndex],
+            isQuestion: isQuestionResponse,
+          };
+        }
+        return updated;
+      });
 
-        // Store this state in the aiResponses array
-        setAiResponses((prev) => {
-          const updated = [...prev];
-          if (updated[lastIndex]) {
-            updated[lastIndex] = {
-              ...updated[lastIndex],
-              isQuestion: isQuestionResponse,
-            };
-          }
-          return updated;
-        });
+      // Timer for showing question animation
+      const timer = setTimeout(() => {
+        if (isQuestion) {
+          // Show question lottie after ensuring space
+          setShowQuestionLottie(true);
+        }
+      }, 1200);
 
-        // Rest of your positioning code...
-        setMessagePositions((prev) => [...prev, userTop]);
-        setAiMessagePositions((prev) => [...prev, aiTop]);
-
-        // Call recalculateMessagePositions after state updates
-        setTimeout(recalculateMessagePositions, 0);
-        const timer = setTimeout(() => {
-          if (isQuestion) {
-            setShowQuestionLottie(true);
-          } else {
-            setLoadingPositions((prev) => [...prev, aiTop]);
-            const removeTimer = setTimeout(() => {
-              setLoadingPositions((prev) =>
-                prev.filter((pos) => pos !== aiTop)
-              );
-            }, 5000);
-            return () => clearTimeout(removeTimer);
-          }
-        }, 1200);
-        return () => clearTimeout(timer);
-      }
+      return () => clearTimeout(timer);
     }
-  }, [finalMessages]);
+  }, [finalMessages, isQuestion]);
 
   useEffect(() => {
     if (showQuestionLottie) {
@@ -656,12 +547,10 @@ const ChatInterface = () => {
         const words = document.querySelectorAll(".word");
         words.forEach((word) => word.classList.add("active"));
       });
-
       const animationDuration = (animatedWords.length - 1) * 200 + 1000;
       const timer = setTimeout(() => {
         setShowRipple(false);
         setIsExiting(true);
-
         setTimeout(() => {
           setShowPrompt(false);
           setAnimationLoaded(false);
@@ -669,144 +558,118 @@ const ChatInterface = () => {
           setAnimatedWords([]);
           setFinalMessages((prev) => [...prev, animatedWords.join(" ")]);
           setActiveGlow(true);
+
+          setShowLoadingAnimation(true);
+
           setTimeout(() => setShowInput(true), 800);
         }, 800);
       }, animationDuration);
-
       return () => clearTimeout(timer);
     }
   }, [animatedWords]);
 
   useEffect(() => {
     if (activeGlow) {
-      setShowAIGlow(true);
+      // No need to set showAIGlow anymore
       const glowTimer = setTimeout(() => {
         setActiveGlow(false);
-        setShowAIGlow(false);
       }, 5000); // Match AI response delay
-
       return () => clearTimeout(glowTimer);
     }
   }, [activeGlow]);
 
   useEffect(() => {
     if (finalMessages.length > 0) {
-      const messages = document.querySelectorAll(".final-message");
-      const lastMessage = messages[messages.length - 1];
+      // Get the index of the new message
+      const newIndex = finalMessages.length - 1;
 
-      setTimeout(() => {
-        lastMessage.classList.add("active");
+      // Add active class to the new message after a short delay
+      const timer = setTimeout(() => {
+        setActiveMessages((prev) => [...prev, true]);
       }, 50);
 
-      setTimeout(() => {
-        lastMessage.classList.remove("new");
+      const removeNewTimer = setTimeout(() => {
+        const messages = document.querySelectorAll(".final-message");
+        messages[newIndex]?.classList.remove("new");
       }, 600);
+
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(removeNewTimer);
+      };
     }
   }, [finalMessages]);
 
   useEffect(() => {
-    if (aiMessagePositions.length > 0) {
-      const newPosition = aiMessagePositions[aiMessagePositions.length - 1];
-      const responseIndex = aiMessagePositions.length - 1;
+    if (aiResponses.length > 0 && !isQuestion) {
+      const responseIndex = aiResponses.length - 1;
 
-      if (!isQuestion) {
-        const timer = setTimeout(() => {
-          setLoadingPositions((prev) =>
-            prev.filter((pos) => pos !== newPosition)
-          );
+      // Animate AI response after a delay
+      const timer = setTimeout(() => {
+        // Mark the response as animated
+        setAiResponses((prev) =>
+          prev.map((response, index) =>
+            index === responseIndex
+              ? { ...response, isAnimated: true }
+              : response
+          )
+        );
 
-          const aiBoxes = document.querySelectorAll(".ai-response-box");
-          const lastAiBox = aiBoxes[aiBoxes.length - 1];
+        // Find the AI response box
+        const aiBoxes = document.querySelectorAll(".ai-response-box");
+        const lastAiBox = aiBoxes[aiBoxes.length - 1];
 
-          setAiResponses((prev) =>
-            prev.map((response, index) =>
-              index === responseIndex
-                ? { ...response, isAnimated: true }
-                : response
-            )
-          );
+        if (lastAiBox) {
+          lastAiBox.classList.add("active");
 
+          // Animate words
           setTimeout(() => {
-            // Animate main text words
-            const aiBox = aiBoxes[responseIndex];
-            if (aiBox) {
-              const aiWords = aiBox.querySelectorAll(".ai-word");
-              const totalWords = aiWords.length;
+            const aiWords = lastAiBox.querySelectorAll(".ai-word");
+            const totalWords = aiWords.length;
 
-              aiWords.forEach((word, index) => {
-                setTimeout(() => {
-                  word.classList.add("active");
+            aiWords.forEach((word, index) => {
+              setTimeout(() => {
+                word.classList.add("active");
 
-                  // If this is a photo response and we're on the last word,
-                  // trigger the photo container animation after a delay
-                  if (
-                    index === totalWords - 1 &&
-                    aiResponses[responseIndex]?.isPhotoResponse
-                  ) {
-                    setTimeout(() => {
-                      setShowPhotoContainers((prev) =>
-                        prev.map((show, i) =>
-                          i === responseIndex ? true : show
-                        )
-                      );
-                    }, 500); // Wait 500ms after last word animates
-                  }
-                }, index * 100);
-              });
+                // If this is the last word and we need to show a photo
+                if (
+                  index === totalWords - 1 &&
+                  aiResponses[responseIndex]?.isPhotoResponse
+                ) {
+                  setTimeout(() => {
+                    setShowPhotoContainers((prev) => {
+                      const updated = [...prev];
+                      updated[responseIndex] = true;
+                      return updated;
+                    });
+                  }, 500);
+                }
+              }, index * 100);
+            });
 
-              // Handle non-photo responses as before
-              if (!aiResponses[responseIndex]?.isPhotoResponse) {
-                const mainTextAnimationDuration =
-                  aiResponses[responseIndex]?.words.length * 100 + 800;
-
-                setTimeout(() => {
-                  const listItems = aiBox.querySelectorAll(".ai-list-item");
-                  listItems.forEach((item, index) => {
-                    setTimeout(() => {
-                      item.classList.add("active");
-                    }, index * 150);
-                  });
-                }, mainTextAnimationDuration);
-              }
-            }
-
-            // Update container height considering the photo container
-            if (lastAiBox) {
-              const aiHeight = lastAiBox.getBoundingClientRect().height;
-              const extraHeight = aiResponses[responseIndex]?.isPhotoResponse
-                ? 200
-                : 0;
-              setContainerHeight(newPosition + aiHeight + extraHeight + 10);
+            // Animate list items if not a photo response
+            if (!aiResponses[responseIndex]?.isPhotoResponse) {
+              const mainTextAnimationDuration = totalWords * 100 + 800;
+              setTimeout(() => {
+                const listItems = lastAiBox.querySelectorAll(".ai-list-item");
+                listItems.forEach((item, index) => {
+                  setTimeout(() => {
+                    item.classList.add("active");
+                  }, index * 150);
+                });
+              }, mainTextAnimationDuration);
             }
           }, 50);
+        }
+      }, 5000);
 
-          if (lastAiBox) {
-            lastAiBox.classList.add("active");
-          }
-        }, 5000);
-        return () => clearTimeout(timer);
-      }
+      return () => clearTimeout(timer);
     }
-  }, [aiMessagePositions]);
+  }, [aiResponses, isQuestion]);
 
   useEffect(() => {
     console.log(isQuestion);
   }, [isQuestion]);
-
-  useEffect(() => {
-    if (activeGlow) {
-      console.log("Glow activated");
-      // Check if any CSS is affecting visibility
-      const glowElements = document.querySelectorAll(".bg-glow-animation");
-      glowElements.forEach((el) => {
-        console.log(
-          "Glow element computed style:",
-          window.getComputedStyle(el).opacity,
-          window.getComputedStyle(el).visibility
-        );
-      });
-    }
-  }, [activeGlow]);
 
   return (
     <>
@@ -823,10 +686,10 @@ const ChatInterface = () => {
               zIndex: 5,
               pointerEvents: "none",
               mixBlendMode: "normal",
-              opacity: "1 !important", // Force opacity
-              visibility: "visible !important",
+              opacity: "1!important", // Force opacity
+              visibility: "visible!important",
             }}
-            className={`bg-glow-animation ${showAIGlow ? "visible" : ""}`}
+            className={`bg-glow-animation ${activeGlow ? "visible" : ""}`}
             autoplay={true}
             loop={false}
             speed={1}
@@ -842,10 +705,10 @@ const ChatInterface = () => {
               zIndex: 5,
               pointerEvents: "none",
               mixBlendMode: "normal",
-              opacity: "1 !important", // Force opacity
-              visibility: "visible !important",
+              opacity: "1!important", // Force opacity
+              visibility: "visible!important",
             }}
-            className={`bg-glow-animation ${showAIGlow ? "visible" : ""}`}
+            className={`bg-glow-animation ${activeGlow ? "visible" : ""}`}
             autoplay={true}
             loop={false}
             speed={1}
@@ -861,10 +724,10 @@ const ChatInterface = () => {
               zIndex: 5,
               pointerEvents: "none",
               mixBlendMode: "normal",
-              opacity: "1 !important", // Force opacity
-              visibility: "visible !important",
+              opacity: "1!important", // Force opacity
+              visibility: "visible!important",
             }}
-            className={`bg-glow-animation ${showAIGlow ? "visible" : ""}`}
+            className={`bg-glow-animation ${activeGlow ? "visible" : ""}`}
             autoplay={true}
             loop={false}
             speed={1}
@@ -873,30 +736,39 @@ const ChatInterface = () => {
       )}
       <div className={`chat-container ${bgLoaded ? "loaded" : ""}`}>
         <LeftSidebar />
-        <div className="background-layer question-bg" />
+        <div
+          className={`background-layer question-bg ${
+            isQuestion ? "question-active" : ""
+          }`}
+        />
         <div
           className={`background-layer chat-bg ${isQuestion ? "fade-out" : ""}`}
         />
-        <div className="chat-messages" ref={scrollRef}>
-          <div className={`prompt-container ${showPrompt ? "visible" : ""}`}>
-            <div className="prompt-background">
-              <span className="prompt-text">What's on your mind?</span>
-              {animationLoaded && (
-                <LottieAnimation
-                  animationData={animationData}
-                  style={{
-                    position: "absolute",
-                    width: "500px",
-                    height: "500px",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -40%)",
-                  }}
-                  className={isExiting ? "exiting" : ""}
-                />
-              )}
+
+        {/* This is the main container with scrolling capabilities */}
+        <div className="chat-messages" ref={chatContainerRef}>
+          {!enterPressed && (
+            <div className={`prompt-container ${showPrompt ? "visible" : ""}`}>
+              <div className="prompt-background">
+                <span className="prompt-text">What's on your mind?</span>
+                {animationLoaded && (
+                  <LottieAnimation
+                    animationData={animationData}
+                    style={{
+                      position: "absolute",
+                      width: "500px",
+                      height: "500px",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%,-40%)",
+                    }}
+                    className={isExiting ? "exiting" : ""}
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
           {showRipple && (
             <LottieAnimation
               animationData={rippleAnimation}
@@ -914,6 +786,8 @@ const ChatInterface = () => {
               }}
             />
           )}
+
+          {/* Words animation container */}
           <div className="words-container">
             {animatedWords.map((word, index) => (
               <span
@@ -925,144 +799,145 @@ const ChatInterface = () => {
               </span>
             ))}
           </div>
-          <div className={`input-container ${showInput ? "visible" : ""}`}>
-            <input
-              type="text"
-              value={message}
-              onChange={handleMessageChange}
-              onKeyPress={handleKeyPress}
-              placeholder="Message"
-              className="message-input"
-            />
-          </div>
-          <div className="final-messages-container">
-            {finalMessages.map((msg, index) => {
-              const targetTop = messagePositions[index] || 20;
 
-              return (
-                <div
-                  key={index}
-                  className="final-message"
-                  ref={(el) => (messageRefs.current[index] = el)}
-                  style={{
-                    "--target-top": `${targetTop}px`,
-                  }}
-                >
-                  {msg}
-                </div>
-              );
-            })}
-          </div>
-          <div className="ai-response-container">
-            {aiMessagePositions.map((position, index) => {
-              const response = aiResponses[index];
-              if (!response) return null;
-              return (
-                <div
-                  key={index}
-                  className={`ai-response-box ${
-                    response.shouldAnimate ? "question-response" : ""
-                  }`}
-                  style={{
-                    "--ai-target-top": `${position}px`,
-                    position: "absolute",
-                  }}
-                >
-                  <div className="ai-message-content">
-                    {renderAIResponse(response.text)}
-                    {response.isPhotoResponse && showPhotoContainers[index] && (
-                      <div className="nested-photo-container">
-                        <div
-                          className={`photo-overlay${
-                            showPhoto[index] ? " visible" : ""
-                          }`}
-                        >
-                          <img
-                            src={photographerImage}
-                            alt="Photography"
-                            className="photo-content"
-                          />
-                        </div>
-                        {showPreloadAnimation[index] && (
-                          <LottieAnimation
-                            animationData={imagePreloadAnimation}
-                            style={{
-                              position: "absolute",
-                              width: "100%",
-                              height: "100%",
-                              top: 0,
-                              left: 0,
-                              zIndex: 1,
-                            }}
-                            autoplay={true}
-                            loop={false}
-                            speed={1}
-                          />
-                        )}
-                      </div>
-                    )}
+          {/* Conversation container - main change for scroll fix */}
+          <div className="conversation-flow">
+            {finalMessages.map((msg, index) => (
+              <div
+                key={`message-group-${index}`}
+                className="message-group-flow"
+              >
+                <div className="user-message-flow">
+                  <div
+                    className={`final-message ${
+                      activeMessages[index] ? "active" : ""
+                    } ${index === finalMessages.length - 1 ? "new" : ""}`}
+                    ref={
+                      index === finalMessages.length - 1 ? lastMessageRef : null
+                    } // Set ref on the latest message
+                  >
+                    {msg}
                   </div>
                 </div>
-              );
-            })}
 
-            {!isQuestion &&
-              loadingPositions.map((position) => (
-                <LottieAnimation
-                  key={`loading-${position}`}
-                  animationData={glowingStarAnimation}
-                  style={{
-                    position: "absolute",
-                    left: "20px",
-                    top: `${position}px`,
-                    width: "100%",
-                    height: "80px",
-                    pointerEvents: "none",
-                    zIndex: 2001,
-                    opacity: 0,
-                    animation: "fadeIn 0.5s forwards",
-                  }}
-                  className="loading-animation"
-                  autoplay={true}
-                  loop={true}
-                />
-              ))}
-
-            {isQuestion && showQuestionLottie && (
-              <LottieAnimation
-                className="question-lottie"
-                animationData={questionLottie}
-                style={{
-                  position: "fixed",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  top:
-                    finalMessages.length > 0 &&
-                    messageRefs.current[finalMessages.length - 1]
-                      ? messageRefs.current[finalMessages.length - 1]
-                          .offsetTop +
-                        messageRefs.current[finalMessages.length - 1]
-                          .offsetHeight
-                      : 0,
-                  width: "100%",
-                  height: "100%",
-                  zIndex: 3000,
-                  opacity: isQuestionLottieFadingOut
-                    ? 0
-                    : isQuestionLottieFadingIn
-                    ? 1
-                    : 0,
-                  transition: `
-        opacity ${isQuestionLottieFadingIn ? "0.5s ease-out" : "0.5s ease-in"}
-      `,
-                  pointerEvents: "none",
-                }}
-                autoplay={true}
-                loop={false}
-                setSpeed={1}
-              />
-            )}
+                {/* AI response or loading animation */}
+                {aiResponses[index] && (
+                  <div className="ai-response-flow">
+                    {index === aiResponses.length - 1 &&
+                    showLoadingAnimation &&
+                    !aiResponses[index].isQuestion ? (
+                      // Loading animation
+                      <LottieAnimation
+                        animationData={glowingStarAnimation}
+                        style={{
+                          width: "100%",
+                          height: "80px",
+                          pointerEvents: "none",
+                          zIndex: 2001,
+                          opacity: 1,
+                          animation: "fadeIn 0.5s forwards",
+                        }}
+                        className="loading-animation"
+                        autoplay={true}
+                        loop={true}
+                      />
+                    ) : (
+                      // Only show question responses when they're marked as visible
+                      (index < aiResponses.length - 1 ||
+                        !aiResponses[index].isQuestion ||
+                        visibleQuestionResponses[index]) && (
+                        <div
+                          className={`ai-response-box ${
+                            aiResponses[index].isAnimated ? "active" : ""
+                          } ${
+                            aiResponses[index].isQuestion
+                              ? "question-response"
+                              : ""
+                          }`}
+                        >
+                          <div className="ai-message-content">
+                            {renderAIResponse(aiResponses[index].text)}
+                            {/* Rest of the content remains the same */}
+                            {aiResponses[index].isPhotoResponse &&
+                              showPhotoContainers[index] && (
+                                <div className="nested-photo-container">
+                                  <div
+                                    className={`photo-overlay ${
+                                      showPhoto[index] ? "visible" : ""
+                                    }`}
+                                  >
+                                    <img
+                                      src={photographerImage}
+                                      alt="Photography"
+                                      className="photo-content"
+                                    />
+                                  </div>
+                                  {showPreloadAnimation[index] && (
+                                    <LottieAnimation
+                                      animationData={imagePreloadAnimation}
+                                      style={{
+                                        position: "absolute",
+                                        width: "100%",
+                                        height: "100%",
+                                        top: 0,
+                                        left: 0,
+                                        zIndex: 1,
+                                      }}
+                                      autoplay={true}
+                                      loop={false}
+                                      speed={1}
+                                    />
+                                  )}
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+          {isQuestion && showQuestionLottie && (
+            <LottieAnimation
+              className="question-lottie"
+              animationData={questionLottie}
+              style={{
+                position: "absolute", // Add absolute positioning
+                top: `${questionLottiePosition.top}px`, // Use top position from state
+                left: questionLottiePosition.left, // Use left from state
+                width: "100%",
+                height: "90%",
+                opacity: isQuestionLottieFadingOut
+                  ? 0
+                  : isQuestionLottieFadingIn
+                  ? 1
+                  : 0,
+                transition: `opacity ${
+                  isQuestionLottieFadingIn ? "0.5s ease-out" : "0.5s ease-in"
+                }`,
+                pointerEvents: "none",
+                transform: "translateX(-50%)", // Center it horizontally if left is 50%
+                zIndex: 1000, // Ensure it appears above other elements
+              }}
+              autoplay={true}
+              loop={false}
+              setSpeed={1}
+            />
+          )}
+        </div>
+
+        {/* Input container */}
+        <div className={`input-container ${showInput ? "visible" : ""}`}>
+          <input
+            type="text"
+            value={message}
+            onChange={handleMessageChange}
+            onKeyPress={handleKeyPress}
+            placeholder="Message"
+            className="message-input"
+          />
         </div>
       </div>
     </>
