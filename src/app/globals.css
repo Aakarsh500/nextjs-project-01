@@ -833,7 +833,7 @@ body {
   width: 240px;
   background-color: #1a1a1a;
   color: white;
-  z-index: 3000;
+  z-index: 3100;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
 }
 
