@@ -652,14 +652,6 @@ body {
   transform: translateY(0) rotate(0) scale(1);
 }
 
-.question-lottie-container {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  margin: 20px 0;
-  overflow: hidden;
-  position: relative;
-}
 
 .question-lottie-fade {
   opacity: 1;
