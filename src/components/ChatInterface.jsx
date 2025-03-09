@@ -30,6 +30,7 @@ const ChatInterface = () => {
   const [isQuestionLottieFadingOut, setIsQuestionLottieFadingOut] =
     useState(false);
   const [visibleQuestionResponses, setVisibleQuestionResponses] = useState({});
+  const chatContainerRef = useRef(null);
 
   // lottie animations:
   const [animationData, setAnimationData] = useState(null);
@@ -324,6 +325,28 @@ const ChatInterface = () => {
       console.log("Question Lottie height:", lottieHeight);
     }
   }, [questionLottie]);
+
+  useEffect(() => {
+    if (finalMessages.length > 1) {
+      // Trigger scroll only after the first message
+      const container = chatContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight; // Scroll to bottom
+      }
+    }
+  }, [finalMessages]);
+
+  useEffect(() => {
+    // Check if any question response has just become visible
+    const visibleResponses = Object.values(visibleQuestionResponses);
+    if (visibleResponses.some((visible) => visible)) {
+      const container = chatContainerRef.current;
+      if (container) {
+        // Scroll to bottom when a question response becomes visible
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }, [visibleQuestionResponses]); 
 
   // Modify the photo handling useEffect
   useEffect(() => {
@@ -705,7 +728,7 @@ useEffect(() => {
         />
 
         {/* This is the main container with scrolling capabilities */}
-        <div className="chat-messages">
+        <div className="chat-messages" ref={chatContainerRef}>
           {!enterPressed && (
             <div className={`prompt-container ${showPrompt ? "visible" : ""}`}>
               <div className="prompt-background">
