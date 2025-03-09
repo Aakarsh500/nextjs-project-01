@@ -31,6 +31,7 @@ const ChatInterface = () => {
     useState(false);
   const [visibleQuestionResponses, setVisibleQuestionResponses] = useState({});
   const chatContainerRef = useRef(null);
+  
 
   // lottie animations:
   const [animationData, setAnimationData] = useState(null);
@@ -44,8 +45,8 @@ const ChatInterface = () => {
   const [activeMessages, setActiveMessages] = useState([]);
 
   useEffect(() => {
-    console.log(finalMessages)
-  }, [finalMessages])
+    console.log(finalMessages);
+  }, [finalMessages]);
 
   useEffect(() => {
     // Load all Lottie animations
@@ -215,7 +216,7 @@ const ChatInterface = () => {
       setShowQuestionLottie(false);
       setIsQuestionLottieFadingOut(false);
       setIsQuestionLottieFadingIn(false);
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
       setShowLoadingAnimation(false);
       if (checkForQuestionPhrases(message.trim())) {
         setIsQuestion(true);
@@ -328,25 +329,25 @@ const ChatInterface = () => {
 
   useEffect(() => {
     if (finalMessages.length > 1) {
-      // Trigger scroll only after the first message
+      //Trigger scroll only after the first message
       const container = chatContainerRef.current;
       if (container) {
-        container.scrollTop = container.scrollHeight; // Scroll to bottom
+        container.scrollTop = container.scrollHeight - 200; //Scroll to bottom minus 200px
       }
     }
   }, [finalMessages]);
 
   useEffect(() => {
-    // Check if any question response has just become visible
+    //Check if any question response has just become visible
     const visibleResponses = Object.values(visibleQuestionResponses);
     if (visibleResponses.some((visible) => visible)) {
       const container = chatContainerRef.current;
       if (container) {
-        // Scroll to bottom when a question response becomes visible
-        container.scrollTop = container.scrollHeight;
+        //Scroll to bottom when a question response becomes visible
+        container.scrollTop = container.scrollHeight - 200; //Scroll to bottom minus 200px
       }
     }
-  }, [visibleQuestionResponses]); 
+  }, [visibleQuestionResponses]);
 
   // Modify the photo handling useEffect
   useEffect(() => {
@@ -505,50 +506,53 @@ const ChatInterface = () => {
   }, [animatedWords]);
 
   // Add this useEffect to manage the response timing for questions
-useEffect(() => {
-  if (isQuestion && showQuestionLottie) {
-    setTimeout(() => {
-      const lastIndex = aiResponses.length - 1;
-      
-      // Initially hide this specific question response
-      setVisibleQuestionResponses((prev) => ({
-        ...prev,
-        [lastIndex]: false,
-      }));
-      
-      const questionResponseTimer = setTimeout(() => {
-        // Show the response after 5 seconds
+  useEffect(() => {
+    if (isQuestion && showQuestionLottie) {
+      setTimeout(() => {
+        const lastIndex = aiResponses.length - 1;
+
+        // Initially hide this specific question response
         setVisibleQuestionResponses((prev) => ({
           ...prev,
-          [lastIndex]: true,
+          [lastIndex]: false,
         }));
-        
-        // Set the AI response to animate
-        setAiResponses((prev) => prev.map((response, index) =>
-          index === lastIndex ? { ...response, shouldAnimate: true, isAnimated: true } : response
-        ));
-        
-        // Animate the words in the AI response
-        const aiBoxes = document.querySelectorAll(".ai-response-box");
-        const lastAiBox = aiBoxes[aiBoxes.length - 1];
-        if (lastAiBox) {
-          lastAiBox.classList.add("question-response");
-          setTimeout(() => {
-            const aiWords = lastAiBox.querySelectorAll(".ai-word");
-            aiWords.forEach((word, index) => {
-              setTimeout(() => {
-                word.classList.add("active");
-              }, index * 100);
-            });
-          }, 750);
-        }
-      }, 5000); // 5-second delay before showing the response
-      
-      return () => clearTimeout(questionResponseTimer);
-    }, 0);
-  }
-}, [isQuestion, showQuestionLottie, aiResponses.length]);
 
+        const questionResponseTimer = setTimeout(() => {
+          // Show the response after 5 seconds
+          setVisibleQuestionResponses((prev) => ({
+            ...prev,
+            [lastIndex]: true,
+          }));
+
+          // Set the AI response to animate
+          setAiResponses((prev) =>
+            prev.map((response, index) =>
+              index === lastIndex
+                ? { ...response, shouldAnimate: true, isAnimated: true }
+                : response
+            )
+          );
+
+          // Animate the words in the AI response
+          const aiBoxes = document.querySelectorAll(".ai-response-box");
+          const lastAiBox = aiBoxes[aiBoxes.length - 1];
+          if (lastAiBox) {
+            lastAiBox.classList.add("question-response");
+            setTimeout(() => {
+              const aiWords = lastAiBox.querySelectorAll(".ai-word");
+              aiWords.forEach((word, index) => {
+                setTimeout(() => {
+                  word.classList.add("active");
+                }, index * 100);
+              });
+            }, 750);
+          }
+        }, 5000); // 5-second delay before showing the response
+
+        return () => clearTimeout(questionResponseTimer);
+      }, 0);
+    }
+  }, [isQuestion, showQuestionLottie, aiResponses.length]);
 
   useEffect(() => {
     if (activeGlow) {
