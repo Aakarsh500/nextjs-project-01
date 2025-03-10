@@ -30,11 +30,10 @@ const LeftSidebar = () => {
           },
         }),
       })
-        .then((response) => {
+        .then(async (response) => {
           if (!response.ok) {
-            return response.json().then((err) => {
-              throw new Error(`${err.error}: ${err.details}`);
-            });
+            const err = await response.json();
+            throw new Error(`${err.error}: ${err.details}`);
           }
           return response.json();
         })
