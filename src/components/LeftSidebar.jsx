@@ -4,6 +4,36 @@ import { motion } from "framer-motion";
 import { FaBars, FaTimes, FaUser } from "react-icons/fa";
 import { UserButton, useUser, useClerk } from "@clerk/nextjs";
 
+// DEVELOPER DEBUG FUNCTION - REMOVE BEFORE PRODUCTION
+const debugLogChatMessages = (data, enabled = true) => {
+  if (!enabled) return;
+  
+  console.group('[DEBUG] Chat Messages Endpoint');
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log('Full response:', data);
+  
+  if (Array.isArray(data)) {
+    console.log(`Total messages: ${data.length}`);
+    
+    if (data.length > 0) {
+      console.log('First message:', data[0]);
+      console.log('Last message:', data[data.length - 1]);
+      
+      // Additional message structure analysis
+      const messageTypes = {};
+      data.forEach(msg => {
+        const type = msg.type || 'unknown';
+        messageTypes[type] = (messageTypes[type] || 0) + 1;
+      });
+      console.log('Message types distribution:', messageTypes);
+    }
+  } else {
+    console.log('Non-array response structure:', typeof data);
+  }
+  console.groupEnd();
+};
+
+
 const LeftSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { isSignedIn, user } = useUser();
@@ -51,10 +81,12 @@ const LeftSidebar = () => {
           } else {
             console.log("Existing user logged in");
           }
-
+          
           // You can also store chat logs if needed
-          if (data.chatLogs) {
-            localStorage.setItem("chatLogs", JSON.stringify(data.chatLogs));
+          if (data.chatLogs && window.processChatLogsFromAPI) {
+            debugLogChatMessages(data.chatLogs, true);
+            window.processChatLogsFromAPI(data.chatLogs);
+            console.log("Chat logs processed directly from API response");
           }
         })
         .catch((error) => console.error("Detailed login error:", error));

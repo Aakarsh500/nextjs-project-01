@@ -73,6 +73,7 @@ const ChatInterface = () => {
 
   // Messages state
   const [finalMessages, setFinalMessages] = useState([]);
+  const [isPreloadedMessage, setIsPreloadedMessage] = useState({});
 
   // AI response states
   const [aiResponses, setAiResponses] = useState({});
@@ -134,6 +135,13 @@ const ChatInterface = () => {
       }
     };
     loadAnimations();
+  }, []);
+
+  useEffect(() => {
+    window.processChatLogsFromAPI = processChatLogsFromAPI;
+    return () => {
+      window.processChatLogsFromAPI = undefined;
+    };
   }, []);
 
   useEffect(() => {
@@ -268,6 +276,56 @@ const ChatInterface = () => {
     }
   };
 
+  // DEVELOPER DEBUG FUNCTION - REMOVE BEFORE PRODUCTION
+  const processChatLogsFromAPI = (chatData) => {
+    if (!chatData || !chatData.messages || !Array.isArray(chatData.messages)) {
+      console.error("Invalid chat data structure:", chatData);
+      return;
+    }
+
+    console.group("Debug: Processing Chat Logs");
+    console.log(`Processing chat logs, limiting to last 3 user exchanges`);
+
+    // Get only the last 6 messages (3 user messages + 3 AI responses)
+    const limitedMessages = [...chatData.messages].slice(-6);
+
+    // Create arrays to hold processed messages
+    const newMessages = [...finalMessages];
+    const newAiResponses = { ...aiResponses };
+    const newQuestionFlags = { ...isQuestionMessage };
+    const newPreloadedFlags = { ...isPreloadedMessage };
+
+    // Process messages in sequence
+    limitedMessages.forEach((msg) => {
+      if (msg.is_user) {
+        // Add user message
+        const messageIndex = newMessages.length;
+        newMessages.push(msg.message);
+        newQuestionFlags[messageIndex] = isQuestion(msg.message);
+        newPreloadedFlags[messageIndex] = true; // Mark as preloaded
+      } else {
+        // Add AI response for the previous user message
+        if (newMessages.length > 0) {
+          const messageIndex = newMessages.length - 1;
+          newAiResponses[messageIndex] = msg.message;
+        }
+      }
+    });
+
+    // Update state with the loaded messages and preloaded flags
+    setFinalMessages(newMessages);
+    setAiResponses(newAiResponses);
+    setIsQuestionMessage(newQuestionFlags);
+    setIsPreloadedMessage(newPreloadedFlags);
+    setShowPrompt(false);
+
+    console.log("Updated message state with:", {
+      messageCount: newMessages.length,
+      responseCount: Object.keys(newAiResponses).length,
+    });
+    console.groupEnd();
+  };
+
   useEffect(() => {
     if (animatedWords.length > 0) {
       requestAnimationFrame(() => {
@@ -377,7 +435,6 @@ const ChatInterface = () => {
             ))}
           </div>
 
-          {/* Message flow container */}
           <div className="message-flow-container">
             {finalMessages.map((msg, index) => (
               <div
@@ -389,7 +446,13 @@ const ChatInterface = () => {
               >
                 {/* User message on the right */}
                 <div className="user-message-wrapper">
-                  <div className="user-message">{msg}</div>
+                  <div
+                    className={`user-message ${
+                      isPreloadedMessage[index] ? "preloaded-message" : ""
+                    }`}
+                  >
+                    {msg}
+                  </div>
                 </div>
 
                 {/* AI response on the left */}
@@ -397,14 +460,12 @@ const ChatInterface = () => {
                   {/* Show regular animation for non-question messages */}
                   {isAiResponding[index] &&
                     !aiResponses[index] &&
-                    !isQuestionMessage[index] && (
+                    !isQuestionMessage[index] &&
+                    !isPreloadedMessage[index] && (
                       <div className="ai-loading-animation">
                         <LottieAnimation
                           animationData={glowingStarAnimation}
-                          style={{
-                            width: "500px",
-                            height: "200px",
-                          }}
+                          style={{ width: "500px", height: "200px" }}
                         />
                       </div>
                     )}
@@ -413,22 +474,24 @@ const ChatInterface = () => {
                   {isAiResponding[index] &&
                     !aiResponses[index] &&
                     isQuestionMessage[index] &&
-                    questionAnimation && (
+                    questionAnimation &&
+                    !isPreloadedMessage[index] && (
                       <div className="ai-loading-animation">
                         <LottieAnimation
                           animationData={questionAnimation}
-                          style={{
-                            width: "500px",
-                            height: "200px",
-                          }}
+                          style={{ width: "500px", height: "200px" }}
                         />
                       </div>
                     )}
 
-                  <div className="ai-message">
+                  <div
+                    className={`ai-message ${
+                      isPreloadedMessage[index] ? "preloaded-message" : ""
+                    }`}
+                  >
                     {aiResponses[index] ? (
                       <p>{aiResponses[index]}</p>
-                    ) : isAiResponding[index] ? (
+                    ) : isAiResponding[index] && !isPreloadedMessage[index] ? (
                       "Working on the response..."
                     ) : null}
                   </div>

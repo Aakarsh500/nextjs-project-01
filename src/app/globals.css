@@ -447,6 +447,26 @@ SIDE LEFT BAR
   width: 100%;
 }
 
+/* **********************
+********LOG MESSAGES*****
+************************ */
+
+.user-message.preloaded-message {
+  animation: fadeIn 0.3s ease forwards !important;
+}
+
+
+.ai-message.preloaded-message {
+  animation: fadeIn 0.3s ease forwards !important;
+  animation-delay: 0s !important;
+  opacity: 1 !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (max-width: 768px) {
   .prompt-container {
     max-width: 90%;
